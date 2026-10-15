@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kengan Omega Reader</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #121212; color: #e0e0e0; font-family: system-ui, -apple-system, sans-serif; }
+        .reader-image { max-height: 90vh; object-fit: contain; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-red-600 selection:text-white">
+
+    <!-- Navbar Superior -->
+    <header class="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-50 px-4 py-3 shadow-md flex items-center justify-between">
+        <h1 class="font-bold text-lg text-red-500 tracking-wide">Kengan Omega</h1>
+        
+        <div class="flex items-center space-x-2 sm:space-x-4">
+            <!-- Seletor de Capítulo -->
+            <select id="chapterSelect" class="bg-zinc-800 text-sm text-zinc-200 border border-zinc-700 rounded px-2 py-1.5 focus:outline-none focus:border-red-500">
+                <option value="">Carregando...</option>
+            </select>
+
+            <!-- Seletor de Página -->
+            <select id="pageSelect" class="bg-zinc-800 text-sm text-zinc-200 border border-zinc-700 rounded px-2 py-1.5 focus:outline-none focus:border-red-500">
+                <option value="1">1 / 1</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- Área de Leitura Principal -->
+    <main class="flex-grow flex flex-col items-center justify-center p-2 sm:p-4 relative cursor-pointer" onclick="nextPage()">
+        <div id="loading" class="text-zinc-500 text-sm animate-pulse absolute">Carregando imagem...</div>
+        <img id="mangaImage" class="reader-image rounded shadow-2xl transition-opacity duration-200 opacity-0" alt="Página do Mangá" onload="document.getElementById('loading').style.display='none'" onerror="handleImageError()">
+    </main>
+
+    <!-- Barra de Navegação Inferior (Fixa para Celular/PC) -->
+    <footer class="bg-zinc-900 border-t border-zinc-800 px-4 py-3 flex items-center justify-between z-50">
+        <button onclick="prevPage()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-sm font-medium px-4 py-2 rounded transition active:scale-95">
+            ← Anterior
+        </button>
+        <span id="pageIndicator" class="text-xs sm:text-sm text-zinc-400 font-mono">Página 1 de 1</span>
+        <button onclick="nextPage()" class="bg-red-600 hover:bg-red-500 text-white text-sm font-medium px-5 py-2 rounded transition active:scale-95 shadow-lg shadow-red-900/40">
+            Próxima →
+        </button>
+    </footer>
+
+    <!-- Lógica JavaScript do Leitor -->
+    <script>
+        let chaptersData = [];
+        let currentChapterIndex = 0;
+        let currentPage = 1;
+
+        const chapterSelect = document.getElementById('chapterSelect');
+        const pageSelect = document.getElementById('pageSelect');
+        const mangaImage = document.getElementById('mangaImage');
+        const loadingEl = document.getElementById('loading');
+        const pageIndicator = document.getElementById('pageIndicator');
+
+        // Carrega o arquivo chapters.json gerado pelo Python
+        async function initReader() {
+            try {
+                const response = await fetch('chapters.json');
+                chaptersData = await response.json();
+                
+                if (chaptersData.length === 0) {
+                    chapterSelect.innerHTML = '<option>Nenhum capítulo encontrado</option>';
+                    return;
+                }
+
+                // Preenche o seletor de capítulos
+                chapterSelect.innerHTML = '';
+                chaptersData.forEach((ch, idx) => {
+                    let opt = document.createElement('option');
+                    opt.value = idx;
+                    opt.textContent = `Capítulo ${ch.chapter}`;
+                    chapterSelect.appendChild(opt);
+                });
+
+                chapterSelect.addEventListener('change', (e) => {
+                    currentChapterIndex = parseInt(e.target.value);
+                    currentPage = 1;
+                    loadChapter();
+                });
+
+                pageSelect.addEventListener('change', (e) => {
+                    currentPage = parseInt(e.target.value);
+                    updateImage();
+                });
+
+                loadChapter();
+            } catch (error) {
+                console.error("Erro ao carregar chapters.json:", error);
+                chapterSelect.innerHTML = '<option>Erro ao carregar chapters.json</option>';
+            }
+        }
+
+        function loadChapter() {
+            chapterSelect.value = currentChapterIndex;
+            const currentCh = chaptersData[currentChapterIndex];
+            
+            // Preenche o seletor de páginas
+            pageSelect.innerHTML = '';
+            for (let i = 1; i <= currentCh.pages; i++) {
+                let opt = document.createElement('option');
+                opt.value = i;
+                opt.textContent = `${i} / ${currentCh.pages}`;
+                pageSelect.appendChild(opt);
+            }
+
+            updateImage();
+        }
+
+        function updateImage() {
+            const currentCh = chaptersData[currentChapterIndex];
+            pageSelect.value = currentPage;
+            pageIndicator.textContent = `Cap. ${currentCh.chapter} • Página ${currentPage} de ${currentCh.pages}`;
+            
+            loadingEl.style.display = 'block';
+            mangaImage.style.opacity = '0';
+
+            // Assume padrão de nomenclatura 'pagina_001.jpg' (ou .png/.webp)
+            // O navegador tentará carregar. Se falhar, o script tenta extensões alternativas.
+            let padNum = String(currentPage).padStart(3, '0');
+            let folderName = `kengan_omega_${currentCh.chapter}`;
+            
+            mangaImage.src = `${folderName}/pagina_${padNum}.jpg`;
+        }
+
+        function handleImageError() {
+            // Fallback caso a imagem seja .png ou .webp em vez de .jpg
+            const currentCh = chaptersData[currentChapterIndex];
+            let padNum = String(currentPage).padStart(3, '0');
+            let folderName = `kengan_omega_${currentCh.chapter}`;
+            
+            if (mangaImage.src.endsWith('.jpg')) {
+                mangaImage.src = `${folderName}/pagina_${padNum}.png`;
+            } else if (mangaImage.src.endsWith('.png')) {
+                mangaImage.src = `${folderName}/pagina_${padNum}.webp`;
+            } else {
+                loadingEl.textContent = "Erro ao carregar imagem";
+            }
+        }
+
+        mangaImage.onload = () => {
+            loadingEl.style.display = 'none';
+            mangaImage.style.opacity = '1';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        };
+
+        function nextPage() {
+            const currentCh = chaptersData[currentChapterIndex];
+            if (currentPage < currentCh.pages) {
+                currentPage++;
+                updateImage();
+            } else if (currentChapterIndex < chaptersData.length - 1) {
+                // Vai automaticamente para o próximo capítulo
+                currentChapterIndex++;
+                currentPage = 1;
+                loadChapter();
+            }
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                updateImage();
+            } else if (currentChapterIndex > 0) {
+                // Vai para o final do capítulo anterior
+                currentChapterIndex--;
+                const currentCh = chaptersData[currentChapterIndex];
+                currentPage = currentCh.pages;
+                loadChapter();
+            }
+        }
+
+        // Navegação por teclado (Setas direcionais)
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'd') nextPage();
+            if (e.key === 'ArrowLeft' || e.key === 'a') prevPage();
+        });
+
+        initReader();
+    </script>
+</body>
+</html>
