@@ -124,7 +124,7 @@
             // Assume padrão de nomenclatura 'pagina_001.jpg' (ou .png/.webp)
             // O navegador tentará carregar. Se falhar, o script tenta extensões alternativas.
             let padNum = String(currentPage).padStart(3, '0');
-            let folderName = `kengan_omega_${currentCh.chapter}`;
+            let folderName = `kengan_omega/kengan_omega_${currentCh.chapter}`;
             
             mangaImage.src = `${folderName}/pagina_${padNum}.jpg`;
         }
